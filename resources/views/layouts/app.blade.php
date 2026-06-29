@@ -14,6 +14,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- DataTables -->
     <link href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+    <!-- Select2 -->
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
     <link href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.bootstrap5.min.css" rel="stylesheet">
     <link href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap5.min.css" rel="stylesheet">
 
@@ -59,7 +62,7 @@
             z-index: 1040;
             overflow-y: auto;
             overflow-x: hidden;
-            transition: transform 0.3s ease-in-out;
+            transition: width 0.3s ease-in-out, transform 0.3s ease-in-out;
             scrollbar-width: thin;
             scrollbar-color: var(--tz-green) transparent;
             -webkit-overflow-scrolling: touch;
@@ -134,6 +137,129 @@
 
         .nav-link i { font-size: 1rem; min-width: 20px; text-align: center; }
 
+        /* ===== SIDEBAR COLLAPSE BUTTON ===== */
+        .sidebar-collapse-btn {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.15);
+            color: rgba(255,255,255,0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-left: auto;
+            flex-shrink: 0;
+            padding: 0;
+        }
+
+        .sidebar-collapse-btn:hover {
+            background: var(--tz-green);
+            color: #fff;
+            border-color: var(--tz-green);
+        }
+
+        .sidebar-collapse-btn i {
+            min-width: auto;
+            transition: transform 0.3s;
+        }
+
+        /* ===== COLLAPSED SIDEBAR STATE ===== */
+        body.sidebar-collapsed .sidebar {
+            width: var(--sidebar-collapsed);
+        }
+
+        body.sidebar-collapsed .sidebar-brand-text,
+        body.sidebar-collapsed .nav-link span,
+        body.sidebar-collapsed .nav-section,
+        body.sidebar-collapsed .submenu-toggle {
+            opacity: 0;
+            visibility: hidden;
+            width: 0;
+            display: none;
+        }
+
+        body.sidebar-collapsed .sidebar-brand {
+            justify-content: center;
+            padding: 1.25rem 0.5rem;
+        }
+
+        body.sidebar-collapsed .sidebar-brand-icon {
+            margin: 0 auto;
+        }
+
+        body.sidebar-collapsed .sidebar-collapse-btn {
+            position: absolute;
+            right: -13px;
+            top: 18px;
+            background: var(--tz-green);
+            color: #fff;
+            border-color: var(--tz-green);
+            z-index: 1050;
+        }
+
+        body.sidebar-collapsed .sidebar-collapse-btn i {
+            transform: rotate(180deg);
+        }
+
+        body.sidebar-collapsed .nav-link {
+            justify-content: center;
+            padding: 0.65rem 0.5rem;
+            border-left: none;
+        }
+
+        body.sidebar-collapsed .nav-link i {
+            font-size: 1.2rem;
+            min-width: auto;
+        }
+
+        body.sidebar-collapsed .nav-menu {
+            padding: 0.75rem 0.5rem;
+        }
+
+        body.sidebar-collapsed .has-submenu .submenu {
+            display: none !important;
+        }
+
+        body.sidebar-collapsed .main-content {
+            margin-left: var(--sidebar-collapsed);
+        }
+
+        /* Tooltip for collapsed sidebar */
+        body.sidebar-collapsed .nav-link {
+            position: relative;
+        }
+
+        body.sidebar-collapsed .nav-link:hover::after {
+            content: attr(data-title);
+            position: absolute;
+            left: calc(100% + 10px);
+            top: 50%;
+            transform: translateY(-50%);
+            background: var(--tz-black);
+            color: #fff;
+            padding: 0.4rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            white-space: nowrap;
+            z-index: 1060;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+
+        body.sidebar-collapsed .nav-link:hover::before {
+            content: '';
+            position: absolute;
+            left: calc(100% + 4px);
+            top: 50%;
+            transform: translateY(-50%);
+            border: 6px solid transparent;
+            border-right-color: var(--tz-black);
+            z-index: 1060;
+        }
+
         /* Submenu styles */
         .submenu {
             background: rgba(0,0,0,0.2);
@@ -188,7 +314,7 @@
             margin-left: var(--sidebar-width);
             min-height: 100vh;
             min-height: 100dvh;
-            transition: margin-left 0.3s;
+            transition: margin-left 0.3s ease-in-out;
         }
 
         /* ===== TOPBAR ===== */
@@ -226,6 +352,20 @@
         }
 
         .btn-icon:hover { background: #f5f5f5; color: var(--tz-green); }
+
+        /* Sidebar expand button in topbar (visible when sidebar is collapsed) */
+        .sidebar-expand-btn {
+            display: none !important;
+        }
+
+        body.sidebar-collapsed .sidebar-expand-btn {
+            display: inline-flex !important;
+            margin-right: 0.5rem;
+        }
+
+        body.sidebar-collapsed .topbar-left {
+            padding-left: 0.5rem;
+        }
 
         .notification-badge {
             position: absolute;
@@ -462,6 +602,34 @@
         /* ===== RESPONSIVE: Tablet & Mobile ========= */
         /* ============================================ */
         @media (max-width: 991.98px) {
+            /* Disable collapsed state on mobile */
+            body.sidebar-collapsed .sidebar {
+                width: var(--sidebar-width);
+            }
+
+            body.sidebar-collapsed .main-content {
+                margin-left: 0;
+            }
+
+            body.sidebar-collapsed .sidebar-brand-text,
+            body.sidebar-collapsed .nav-link span,
+            body.sidebar-collapsed .nav-section,
+            body.sidebar-collapsed .submenu-toggle {
+                display: block;
+                opacity: 1;
+                visibility: visible;
+                width: auto;
+            }
+
+            body.sidebar-collapsed .nav-link {
+                justify-content: flex-start;
+                padding: 0.65rem 1.25rem;
+            }
+
+            body.sidebar-collapsed .sidebar-collapse-btn {
+                display: none;
+            }
+
             /* Sidebar hidden by default on mobile */
             .sidebar {
                 transform: translateX(-100%);
@@ -657,6 +825,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- Select2 -->
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
     <script>
         // Setup AJAX defaults
@@ -679,6 +849,47 @@
             overlay.classList.toggle('show');
             body.classList.toggle('sidebar-open');
         }
+
+        /**
+         * Toggle sidebar collapse/expand (desktop only)
+         * Saves preference to localStorage
+         */
+        function toggleSidebarCollapse(event) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            // Only allow on desktop
+            if (window.innerWidth < 992) return;
+
+            const body = document.body;
+            const isCollapsed = body.classList.toggle('sidebar-collapsed');
+
+            // Save preference
+            localStorage.setItem('sidebar-collapsed', isCollapsed ? '1' : '0');
+        }
+
+        // Restore sidebar collapse state on page load
+        (function() {
+            const isCollapsed = localStorage.getItem('sidebar-collapsed') === '1';
+            if (isCollapsed && window.innerWidth >= 992) {
+                document.body.classList.add('sidebar-collapsed');
+            }
+
+            // Set data-title attributes for tooltips in collapsed mode
+            document.querySelectorAll('.nav-link:not(.has-submenu > .nav-link)').forEach(function(link) {
+                const span = link.querySelector('span');
+                if (span) {
+                    link.setAttribute('data-title', span.textContent.trim());
+                }
+            });
+        })();
+
+        // Handle window resize - reset collapse on mobile
+        window.addEventListener('resize', function() {
+            if (window.innerWidth < 992) {
+                document.body.classList.remove('sidebar-collapsed');
+            }
+        });
 
         /**
          * Close sidebar on mobile - used when clicking a nav link
@@ -760,6 +971,103 @@
                 $('#' + villageSelectId).html(options);
                 if (callback) callback();
             });
+        }
+
+        // ===== SELECT2 SEARCHABLE LOCATION DROPDOWNS =====
+        function initSelect2Location(regionId, districtId, wardId, villageId) {
+            const r = $('#' + (regionId || 'regionSelect'));
+            const d = $('#' + (districtId || 'districtSelect'));
+            const w = $('#' + (wardId || 'wardSelect'));
+            const v = $('#' + (villageId || 'villageSelect'));
+
+            // Only init Select2 if element exists and is a select
+            [r, d, w, v].forEach(function($el) {
+                if ($el.length && $el.is('select')) {
+                    $el.select2({ theme: 'bootstrap-5', width: '100%', dropdownParent: $el.closest('.modal').length ? $el.closest('.modal') : undefined });
+                }
+            });
+
+            // Rebuild cascading handlers that work with Select2
+            r.off('change.select2').on('change.select2', function() {
+                const regionVal = $(this).val();
+                if (regionVal) {
+                    $.get('/ajax/districts/' + regionVal, function(data) {
+                        let options = '<option value="">Select District</option>';
+                        data.forEach(function(item) { options += '<option value="' + item.id + '">' + item.name + '</option>'; });
+                        d.html(options).trigger('change.select2');
+                        w.html('<option value="">Select Ward</option>').trigger('change.select2');
+                        v.html('<option value="">Select Village/Street</option>').trigger('change.select2');
+                    });
+                }
+            });
+
+            d.off('change.select2').on('change.select2', function() {
+                const districtVal = $(this).val();
+                if (districtVal) {
+                    $.get('/ajax/wards/' + districtVal, function(data) {
+                        let options = '<option value="">Select Ward</option>';
+                        data.forEach(function(item) { options += '<option value="' + item.id + '">' + item.name + '</option>'; });
+                        w.html(options).trigger('change.select2');
+                        v.html('<option value="">Select Village/Street</option>').trigger('change.select2');
+                    });
+                }
+            });
+
+            w.off('change.select2').on('change.select2', function() {
+                const wardVal = $(this).val();
+                if (wardVal) {
+                    $.get('/ajax/villages/' + wardVal, function(data) {
+                        let options = '<option value="">Select Village/Street</option>';
+                        data.forEach(function(item) { options += '<option value="' + item.id + '">' + item.name + '</option>'; });
+                        v.html(options).trigger('change.select2');
+                    });
+                }
+            });
+        }
+
+        // ===== GEOLOCATION HELPER =====
+        function captureGeoLocation(latInputId, lngInputId, btnId) {
+            const $btn = btnId ? $('#' + btnId) : null;
+            const $lat = $('#' + latInputId);
+            const $lng = $('#' + lngInputId);
+
+            function doCapture() {
+                if ($btn) {
+                    $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span>Capturing...');
+                }
+                if (!navigator.geolocation) {
+                    alert('Geolocation is not supported by this browser.');
+                    if ($btn) $btn.prop('disabled', false).html('<i class="bi bi-geo-alt me-1"></i>Capture Location');
+                    return;
+                }
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        $lat.val(position.coords.latitude.toFixed(8));
+                        $lng.val(position.coords.longitude.toFixed(8));
+                        if ($btn) $btn.prop('disabled', false).html('<i class="bi bi-check-circle me-1"></i>Captured');
+                        setTimeout(function() {
+                            if ($btn) $btn.html('<i class="bi bi-geo-alt me-1"></i>Capture Location');
+                        }, 3000);
+                    },
+                    function(error) {
+                        let msg = 'Unable to retrieve location.';
+                        switch(error.code) {
+                            case error.PERMISSION_DENIED: msg = 'Location access denied. Please allow location permission.'; break;
+                            case error.POSITION_UNAVAILABLE: msg = 'Location information unavailable.'; break;
+                            case error.TIMEOUT: msg = 'Location request timed out.'; break;
+                        }
+                        alert(msg);
+                        if ($btn) $btn.prop('disabled', false).html('<i class="bi bi-geo-alt me-1"></i>Capture Location');
+                    },
+                    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+                );
+            }
+
+            if ($btn) {
+                $btn.on('click', function(e) { e.preventDefault(); doCapture(); });
+            }
+
+            return { capture: doCapture };
         }
     </script>
 

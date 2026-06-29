@@ -1,4 +1,4 @@
-<nav class="sidebar">
+<nav class="sidebar" id="sidebar">
     <div class="sidebar-brand">
         <div class="sidebar-brand-icon">
             <i class="bi bi-building"></i>
@@ -6,6 +6,10 @@
         <div class="sidebar-brand-text">
             Bagamoyo<br><small>Municipal Council</small>
         </div>
+        {{-- Collapse Toggle Button --}}
+        <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" onclick="toggleSidebarCollapse(event)" title="Toggle Sidebar">
+            <i class="bi bi-chevron-left"></i>
+        </button>
     </div>
 
     <div class="nav-menu">
@@ -15,7 +19,7 @@
             <span>Dashboard</span>
         </a>
 
-        <div class="nav-section">Management</div>
+        <div class="nav-section" data-section-title="Management">Management</div>
 
         {{-- Licenses Submenu --}}
         <div class="has-submenu {{ request()->routeIs('licenses.*', 'license-categories.*') ? 'open' : '' }}">
@@ -63,13 +67,23 @@
             <span>Business Frames</span>
         </a>
 
-        {{-- SMS Notifications --}}
-        <a href="{{ route('sms.create') }}" class="nav-link {{ request()->routeIs('sms.*') ? 'active' : '' }}" onclick="closeSidebarMobile()">
-            <i class="bi bi-chat-square-text"></i>
-            <span>SMS Notifications</span>
-        </a>
+        {{-- SMS Notifications Submenu --}}
+        <div class="has-submenu {{ request()->routeIs('sms.*') ? 'open' : '' }}">
+            <a href="#" class="nav-link" onclick="toggleSubmenu(this, event)">
+                <i class="bi bi-chat-square-text"></i>
+                <span>SMS Notifications</span>
+                <i class="bi bi-chevron-down submenu-toggle"></i>
+            </a>
+            <div class="submenu {{ request()->routeIs('sms.*') ? 'show' : '' }}">
+                <a href="{{ route('sms.create') }}" class="nav-link {{ request()->routeIs('sms.create') ? 'active' : '' }}" onclick="closeSidebarMobile()">Send Custom SMS</a>
+                <a href="{{ route('sms.hygiene') }}" class="nav-link {{ request()->routeIs('sms.hygiene*') ? 'active' : '' }}" onclick="closeSidebarMobile()">
+                    <i class="bi bi-leaf me-1"></i>Hygiene SMS
+                </a>
+                <a href="{{ route('sms.logs') }}" class="nav-link {{ request()->routeIs('sms.logs') ? 'active' : '' }}" onclick="closeSidebarMobile()">SMS Logs</a>
+            </div>
+        </div>
 
-        <div class="nav-section">Reports</div>
+        <div class="nav-section" data-section-title="Reports">Reports</div>
 
         {{-- Reports Submenu --}}
         <div class="has-submenu {{ request()->routeIs('reports.*') ? 'open' : '' }}">
@@ -88,7 +102,7 @@
             </div>
         </div>
 
-        <div class="nav-section">System</div>
+        <div class="nav-section" data-section-title="System">System</div>
 
         {{-- User Management Submenu --}}
         <div class="has-submenu {{ request()->routeIs('admin.users.*', 'admin.roles.*', 'admin.permissions.*', 'admin.logs.*') ? 'open' : '' }}">

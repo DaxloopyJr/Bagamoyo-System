@@ -64,7 +64,7 @@
         @csrf
         <div class="modal-body">
             <div class="mb-3"><label class="form-label">Message <span class="text-danger">*</span></label><textarea name="message" class="form-control" rows="4" required maxlength="480"></textarea><small class="text-muted">Max 480 characters</small></div>
-            <div class="mb-3"><label class="form-label">Recipients</label><select name="recipient_type" class="form-select" id="bulkRecipientType"><option value="all">All Active Licenses</option></select></div>
+            <div class="mb-3"><label class="form-label">Recipients</label><select name="recipient_type" class="form-select" id="bulkRecipientType"><option value="all">All Active Licenses</option><option value="all_inactive">All Inactive Licenses</option></select></div>
         </div>
         <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Send to All</button></div>
     </form>

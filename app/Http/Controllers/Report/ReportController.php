@@ -227,6 +227,17 @@ class ReportController extends Controller
 
     public function mapDistributionData(Request $request)
     {
+        $entity = $request->get('entity', 'licenses');
+
+        return match ($entity) {
+            'markets' => $this->getMarketMapData($request),
+            'frames' => $this->getFramesMapData($request),
+            default => $this->getLicenseMapData($request),
+        };
+    }
+
+    private function getLicenseMapData(Request $request)
+    {
         $query = BusinessLicense::whereNotNull('latitude')
             ->whereNotNull('longitude')
             ->with(['category', 'region', 'district', 'ward']);
@@ -260,6 +271,67 @@ class ReportController extends Controller
                     'expiry_date' => $license->expiry_date->format('d M Y'),
                     'lat' => (float) $license->latitude,
                     'lng' => (float) $license->longitude,
+                ];
+            }),
+        ]);
+    }
+
+    private function getMarketMapData(Request $request)
+    {
+        $query = Market::whereNotNull('latitude')
+            ->whereNotNull('longitude')
+            ->with(['region', 'district', 'ward', 'cages']);
+
+        if ($request->filled('status')) {
+            if ($request->status === 'active') {
+                $query->where('is_active', true);
+            } elseif ($request->status === 'inactive') {
+                $query->where('is_active', false);
+            }
+        }
+
+        $markets = $query->get();
+
+        return response()->json([
+            'markers' => $markets->map(function ($market) {
+                return [
+                    'id' => $market->id,
+                    'name' => $market->name,
+                    'location' => ($market->ward ? $market->ward->ward : '') . ', ' . ($market->district ? $market->district->district : ''),
+                    'total_cages' => $market->cages->count(),
+                    'occupied_cages' => $market->cages->where('status', 'occupied')->count(),
+                    'status' => $market->is_active ? 'active' : 'inactive',
+                    'lat' => (float) $market->latitude,
+                    'lng' => (float) $market->longitude,
+                ];
+            }),
+        ]);
+    }
+
+    private function getFramesMapData(Request $request)
+    {
+        $query = BusinessFrame::whereNotNull('latitude')
+            ->whereNotNull('longitude')
+            ->with(['region', 'district', 'ward', 'village']);
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        $frames = $query->get();
+
+        return response()->json([
+            'markers' => $frames->map(function ($frame) {
+                return [
+                    'id' => $frame->id,
+                    'frame_number' => $frame->frame_number,
+                    'frame_name' => $frame->frame_name,
+                    'status' => $frame->status,
+                    'rent_cost' => number_format($frame->rent_cost, 2) . ' TZS',
+                    'rented_to' => $frame->rented_to ?: 'Not rented',
+                    'location' => ($frame->village ? $frame->village->village : '') . ', ' . ($frame->ward ? $frame->ward->ward : ''),
+                    'lat' => (float) $frame->latitude,
+                    'lng' => (float) $frame->longitude,
                 ];
             }),
         ]);

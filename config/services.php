@@ -19,12 +19,20 @@ return [
         ],
     ],
     'sms' => [
-        'provider' => env('SMS_PROVIDER', 'twilio'),
+        'provider' => env('SMS_PROVIDER', 'smpp'),
+        // SMPP Configuration (Airtel Tanzania)
+        'smpp_host' => env('SMPP_HOST', '196.46.122.141'),
+        'smpp_port' => env('SMPP_PORT', 9001),
+        'smpp_login' => env('SMPP_LOGIN', 'FCT'),
+        'smpp_password' => env('SMPP_PASSWORD', 'fct@dmin@2023'),
+        'smpp_sender' => env('SMPP_SENDER', 'FCT'),
+        // Twilio Configuration (fallback)
         'twilio' => [
             'sid' => env('TWILIO_SID'),
             'auth_token' => env('TWILIO_AUTH_TOKEN'),
             'phone_number' => env('TWILIO_PHONE_NUMBER'),
         ],
+        // Beem Configuration (fallback)
         'beem' => [
             'api_key' => env('BEEM_API_KEY'),
             'secret_key' => env('BEEM_SECRET_KEY'),

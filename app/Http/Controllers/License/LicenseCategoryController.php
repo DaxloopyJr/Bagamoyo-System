@@ -16,7 +16,23 @@ class LicenseCategoryController extends Controller
 
     public function getData(Request $request)
     {
-        $query = LicenseCategory::query();
+        $query = LicenseCategory::withCount('licenses');
+
+        if ($request->filled('status')) {
+            if ($request->status === 'active') {
+                $query->where('is_active', true);
+            } elseif ($request->status === 'inactive') {
+                $query->where('is_active', false);
+            }
+        }
+
+        if ($request->filled('search_value')) {
+            $search = $request->search_value;
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('code', 'like', "%{$search}%");
+            });
+        }
 
         return DataTables::of($query)
             ->addColumn('status_badge', function ($row) {
@@ -27,14 +43,20 @@ class LicenseCategoryController extends Controller
             ->addColumn('fee_formatted', function ($row) {
                 return number_format($row->default_fee, 2) . ' TZS';
             })
+            ->addColumn('licenses_count', function ($row) {
+                $count = $row->licenses_count;
+                return $count > 0
+                    ? '<a href="' . route('licenses.index') . '?category_id=' . $row->id . '" class="badge bg-info text-decoration-none">' . $count . ' license' . ($count > 1 ? 's' : '') . '</a>'
+                    : '<span class="badge bg-secondary">0</span>';
+            })
             ->addColumn('action', function ($row) {
                 $buttons = '<div class="btn-group btn-group-sm">';
-                $buttons .= '<button type="button" class="btn btn-warning edit-btn" data-id="' . $row->id . '" data-name="' . e($row->name) . '" data-code="' . e($row->code) . '" data-description="' . e($row->description) . '" data-fee="' . $row->default_fee . '" title="Edit"><i class="bi bi-pencil"></i></button>';
+                $buttons .= '<button type="button" class="btn btn-warning edit-btn" data-id="' . $row->id . '" title="Edit"><i class="bi bi-pencil"></i></button>';
                 $buttons .= '<button type="button" class="btn btn-danger delete-btn" data-id="' . $row->id . '" title="Delete"><i class="bi bi-trash"></i></button>';
                 $buttons .= '</div>';
                 return $buttons;
             })
-            ->rawColumns(['status_badge', 'action'])
+            ->rawColumns(['status_badge', 'licenses_count', 'action'])
             ->make(true);
     }
 

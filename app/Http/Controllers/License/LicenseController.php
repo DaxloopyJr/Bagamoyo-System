@@ -226,27 +226,28 @@ class LicenseController extends Controller
 
         $daysUntilExpiry = $license->daysUntilExpiry;
         $defaultMessage = $daysUntilExpiry > 0
-            ? "Hello {$license->owner_name}, your business license {$license->license_number} will expire in {$daysUntilExpiry} days on {$license->expiry_date->format('d M Y')}. Please renew to avoid penalties. - Bagamoyo Municipal Council"
-            : "Hello {$license->owner_name}, your business license {$license->license_number} has expired on {$license->expiry_date->format('d M Y')}. Please renew immediately to avoid penalties. - Bagamoyo Municipal Council";
+            ? "Habari {$license->owner_name}, leseni yako ya biashara {$license->license_number} itaisha baada ya siku {$daysUntilExpiry} tarehe {$license->expiry_date->format('d M Y')}. Tafadhali fanya upya katika Ofisi ya Halmashauri ya Manispaa ya Bagamoyo. Asante."
+            : "Habari {$license->owner_name}, leseni yako ya biashara {$license->license_number} iliisha tarehe {$license->expiry_date->format('d M Y')}. Tafadhali fanya upya mara moja. Asante.";
 
         $message = $request->get('message', $defaultMessage);
 
-        try {
-            $this->smsService->send($license->phone, $message, $license);
+        $result = $this->smsService->send($license->phone, $message, $license, 'license_reminder');
+
+        if ($result['success']) {
             $this->logActivity("Sent SMS reminder to {$license->owner_name} ({$license->phone})", $license, 'sms_sent', ['message' => $message]);
             return $this->successResponse('SMS reminder sent successfully.');
-        } catch (\Exception $e) {
-            return $this->errorResponse('Failed to send SMS: ' . $e->getMessage());
         }
+
+        return $this->errorResponse('Failed to send SMS: ' . ($result['error'] ?? 'Unknown error'));
     }
 
     public function sendHygieneReminder(Request $request, BusinessLicense $license)
     {
-        $message = "Hello {$license->owner_name}, this is a reminder to maintain cleanliness around your business premises at {$license->business_name}. Please ensure proper waste disposal and clean surroundings. - Bagamoyo Municipal Council";
+        $message = "Habari {$license->owner_name}, tunakukumbusha kudumisha usafi katika biashara yako {$license->business_name}. Tafadhali hakikisha utupaji wa taka unaofaa na mazingira safi. Halmashauri ya Manispaa ya Bagamoyo.";
 
-        try {
-            $this->smsService->send($license->phone, $message, $license, 'hygiene_reminder');
+        $result = $this->smsService->send($license->phone, $message, $license, 'hygiene_reminder');
 
+        if ($result['success']) {
             HygieneReminder::create([
                 'license_id' => $license->id,
                 'message' => $message,
@@ -258,38 +259,42 @@ class LicenseController extends Controller
             $this->logActivity("Sent hygiene reminder to {$license->owner_name}", $license, 'hygiene_reminder', ['message' => $message]);
 
             return $this->successResponse('Hygiene reminder sent successfully.');
-        } catch (\Exception $e) {
-            return $this->errorResponse('Failed to send hygiene reminder: ' . $e->getMessage());
         }
+
+        return $this->errorResponse('Failed to send hygiene reminder: ' . ($result['error'] ?? 'Unknown error'));
     }
 
     public function sendBulkSms(Request $request)
     {
         $request->validate([
             'message' => 'required|string|max:480',
+            'recipient_type' => 'required|in:all,all_inactive,selected',
             'license_ids' => 'nullable|array',
             'send_to_all' => 'nullable|boolean',
         ]);
 
         $message = $request->get('message');
         $results = ['sent' => 0, 'failed' => 0];
+        $recipientType = $request->get('recipient_type', 'all');
 
-        if ($request->boolean('send_to_all')) {
+        if ($recipientType === 'all_inactive') {
+            $licenses = BusinessLicense::where('is_active', false)->get();
+        } elseif ($request->boolean('send_to_all') || $recipientType === 'all') {
             $licenses = BusinessLicense::where('is_active', true)->get();
         } else {
             $licenses = BusinessLicense::whereIn('id', $request->get('license_ids', []))->get();
         }
 
         foreach ($licenses as $license) {
-            try {
-                $this->smsService->send($license->phone, $message, $license, 'bulk');
+            $result = $this->smsService->send($license->phone, $message, $license, 'bulk');
+            if ($result['success']) {
                 $results['sent']++;
-            } catch (\Exception $e) {
+            } else {
                 $results['failed']++;
             }
         }
 
-        $this->logActivity("Sent bulk SMS to {$results['sent']} business owners", null, 'bulk_sms', ['sent' => $results['sent'], 'failed' => $results['failed']]);
+        $this->logActivity("Sent bulk SMS to {$results['sent']} business owners ({$recipientType})", null, 'bulk_sms', ['sent' => $results['sent'], 'failed' => $results['failed']]);
 
         return $this->successResponse("Bulk SMS sent: {$results['sent']} successful, {$results['failed']} failed.");
     }

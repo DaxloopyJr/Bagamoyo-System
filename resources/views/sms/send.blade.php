@@ -5,7 +5,10 @@
 @section('content')
 <div class="page-header">
     <h1><i class="bi bi-chat-square-text me-2 text-success"></i>Send SMS</h1>
-    <a href="{{ route('sms.logs') }}" class="btn btn-outline-info"><i class="bi bi-clock-history me-1"></i>SMS Logs</a>
+    <div class="d-flex gap-2">
+        <a href="{{ route('sms.hygiene') }}" class="btn btn-outline-success"><i class="bi bi-bucket me-1"></i>Hygiene SMS</a>
+        <a href="{{ route('sms.logs') }}" class="btn btn-outline-info"><i class="bi bi-clock-history me-1"></i>SMS Logs</a>
+    </div>
 </div>
 <div class="row g-3">
     <div class="col-lg-8">

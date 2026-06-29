@@ -60,13 +60,18 @@
 
     <div class="col-md-6">
         <div class="card">
-            <div class="card-header"><i class="bi bi-geo-alt me-2"></i>Location Coordinates</div>
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-geo-alt me-2"></i>Location Coordinates</span>
+                <button type="button" class="btn btn-sm btn-outline-success" id="geoCaptureBtn">
+                    <i class="bi bi-geo-alt me-1"></i>Capture Location
+                </button>
+            </div>
             <div class="card-body">
                 <div class="row g-2">
-                    <div class="col-6"><label class="form-label">Latitude</label><input type="number" name="latitude" class="form-control" value="{{ old('latitude', $license->latitude ?? '') }}" step="any"></div>
-                    <div class="col-6"><label class="form-label">Longitude</label><input type="number" name="longitude" class="form-control" value="{{ old('longitude', $license->longitude ?? '') }}" step="any"></div>
+                    <div class="col-6"><label class="form-label">Latitude</label><input type="number" name="latitude" id="latInput" class="form-control" value="{{ old('latitude', $license->latitude ?? '') }}" step="any"></div>
+                    <div class="col-6"><label class="form-label">Longitude</label><input type="number" name="longitude" id="lngInput" class="form-control" value="{{ old('longitude', $license->longitude ?? '') }}" step="any"></div>
                 </div>
-                <small class="text-muted">Optional: For map distribution reports</small>
+                <small class="text-muted">Click "Capture Location" to auto-fill from your device GPS</small>
             </div>
         </div>
     </div>
@@ -128,8 +133,7 @@
 
 @push('scripts')
 <script>
-$('#regionSelect').change(function() { loadDistricts($(this).val(), 'districtSelect', () => { $('#districtSelect').trigger('change'); }); });
-$('#districtSelect').change(function() { loadWards($(this).val(), 'wardSelect', () => { $('#wardSelect').trigger('change'); }); });
-$('#wardSelect').change(function() { loadVillages($(this).val(), 'villageSelect'); });
+initSelect2Location('regionSelect', 'districtSelect', 'wardSelect', 'villageSelect');
+captureGeoLocation('latInput', 'lngInput', 'geoCaptureBtn');
 </script>
 @endpush

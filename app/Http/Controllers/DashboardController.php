@@ -13,15 +13,18 @@ use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $stats = $this->getDashboardStats();
-        return view('dashboard.index', compact('stats'));
+        $fy = $request->get('fy', $this->getCurrentFinancialYear());
+        $stats = $this->getDashboardStats($fy);
+        $financialYears = $this->getAvailableFinancialYears();
+        return view('dashboard.index', compact('stats', 'fy', 'financialYears'));
     }
 
     public function getStats(Request $request)
     {
-        return response()->json($this->getDashboardStats());
+        $fy = $request->get('fy', $this->getCurrentFinancialYear());
+        return response()->json($this->getDashboardStats($fy));
     }
 
     public function getChartData(Request $request)
@@ -40,39 +43,108 @@ class DashboardController extends Controller
         return response()->json($chartData);
     }
 
-    private function getDashboardStats()
+    /**
+     * Get current financial year string (e.g. "2025/26")
+     * Tanzania FY runs July 1 - June 30
+     */
+    private function getCurrentFinancialYear(): string
     {
         $now = now();
-        $today = $now->format('Y-m-d');
-        $startOfMonth = $now->copy()->startOfMonth()->format('Y-m-d');
-        $startOfThreeMonths = $now->copy()->addMonths(3)->format('Y-m-d');
-        $startOfYear = $now->copy()->startOfYear()->format('Y-m-d');
-        $endOfYear = $now->copy()->endOfYear()->format('Y-m-d');
+        if ($now->month >= 7) {
+            return $now->year . '/' . substr((string)($now->year + 1), -2);
+        }
+        return ($now->year - 1) . '/' . substr((string)$now->year, -2);
+    }
+
+    /**
+     * Parse FY string into start/end Carbon dates
+     */
+    private function getFinancialYearRange(string $fy): array
+    {
+        $parts = explode('/', $fy);
+        $startYear = (int) $parts[0];
+        $endYear = $startYear + 1;
 
         return [
+            Carbon::create($startYear, 7, 1)->startOfDay(),
+            Carbon::create($endYear, 6, 30)->endOfDay(),
+        ];
+    }
+
+    /**
+     * Get available financial years for dropdown
+     */
+    private function getAvailableFinancialYears(): array
+    {
+        $years = [];
+        $currentYear = now()->year;
+        // Go back 5 years and forward 1
+        for ($i = $currentYear - 5; $i <= $currentYear + 1; $i++) {
+            $years[] = $i . '/' . substr((string)($i + 1), -2);
+        }
+        return array_reverse($years);
+    }
+
+    private function getDashboardStats(string $fy)
+    {
+        [$fyStart, $fyEnd] = $this->getFinancialYearRange($fy);
+        $now = now();
+        $today = $now->format('Y-m-d');
+
+        // FY-based date range for calculations
+        $fyStartStr = $fyStart->format('Y-m-d');
+        $fyEndStr = $fyEnd->format('Y-m-d');
+
+        // For "this month" we still use calendar month
+        $startOfMonth = $now->copy()->startOfMonth()->format('Y-m-d');
+        $endOfMonth = $now->copy()->endOfMonth()->format('Y-m-d');
+        $startOfThreeMonths = $now->copy()->addMonths(3)->format('Y-m-d');
+
+        return [
+            'financial_year' => $fy,
+            'fy_start' => $fyStart->format('d M Y'),
+            'fy_end' => $fyEnd->format('d M Y'),
+
+            // License stats within FY context
             'licenses_expired_today' => BusinessLicense::whereDate('expiry_date', $today)
                 ->where('is_active', true)->count(),
-            'licenses_expired_this_month' => BusinessLicense::whereBetween('expiry_date', [$startOfMonth, $now->copy()->endOfMonth()])
+            'licenses_expired_this_month' => BusinessLicense::whereBetween('expiry_date', [$startOfMonth, $endOfMonth])
                 ->where('is_active', true)->count(),
             'licenses_expiring_three_months' => BusinessLicense::whereBetween('expiry_date', [$today, $startOfThreeMonths])
                 ->where('is_active', true)->count(),
-            'licenses_expired_this_year' => BusinessLicense::whereBetween('expiry_date', [$startOfYear, $endOfYear])
+            'licenses_expired_this_year' => BusinessLicense::whereBetween('expiry_date', [$fyStartStr, $fyEndStr])
                 ->where('is_active', true)->count(),
             'active_licenses' => BusinessLicense::where('is_active', true)
                 ->where('expiry_date', '>=', $today)->count(),
             'total_licenses' => BusinessLicense::count(),
+            'fy_issued_licenses' => BusinessLicense::whereBetween('issue_date', [$fyStartStr, $fyEndStr])->count(),
+            'fy_revenue' => BusinessLicense::where('payment_status', '!=', 'not_paid')
+                ->whereBetween('updated_at', [$fyStartStr, $fyEndStr])
+                ->sum('payment_amount'),
+
+            // Fishery (FY-agnostic - current active counts)
             'total_fishermen' => Fisherman::where('is_active', true)->count(),
             'total_fishing_boats' => FishingBoat::where('is_active', true)->count(),
+
+            // Market (FY-agnostic)
             'total_markets' => Market::where('is_active', true)->count(),
             'total_cages' => MarketCage::count(),
             'occupied_cages' => MarketCage::where('status', 'occupied')->count(),
+
+            // Frames (FY-agnostic)
             'total_frames' => BusinessFrame::where('is_active', true)->count(),
             'rented_frames' => BusinessFrame::where('status', 'rented')->count(),
             'not_rented_frames' => BusinessFrame::where('status', 'not_rented')->count(),
+
+            // Revenue uses FY
             'total_revenue_month' => BusinessLicense::where('payment_status', '!=', 'not_paid')
                 ->whereMonth('updated_at', $now->month)
                 ->whereYear('updated_at', $now->year)
                 ->sum('payment_amount'),
+            'total_revenue_fy' => BusinessLicense::where('payment_status', '!=', 'not_paid')
+                ->whereBetween('updated_at', [$fyStartStr, $fyEndStr])
+                ->sum('payment_amount'),
+
             'recent_activities' => \App\Models\ActivityLog::with('causer')
                 ->latest()
                 ->take(10)

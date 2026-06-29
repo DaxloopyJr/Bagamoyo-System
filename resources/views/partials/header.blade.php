@@ -1,6 +1,11 @@
 <div class="topbar">
     <div class="topbar-left">
+        {{-- Mobile sidebar toggle --}}
         <button class="btn btn-sm btn-outline-secondary d-lg-none" onclick="toggleSidebar()">
+            <i class="bi bi-list"></i>
+        </button>
+        {{-- Desktop sidebar expand toggle (shown when sidebar is collapsed) --}}
+        <button class="btn btn-sm btn-outline-secondary d-none d-lg-inline sidebar-expand-btn" id="sidebarExpandBtn" onclick="toggleSidebarCollapse(event)" title="Expand Sidebar">
             <i class="bi bi-list"></i>
         </button>
         <span class="topbar-title">@yield('title', 'Dashboard')</span>
@@ -8,6 +13,10 @@
     <div class="topbar-right">
         <a href="{{ route('dashboard') }}" class="btn-icon" title="Dashboard">
             <i class="bi bi-speedometer2"></i>
+        </a>
+        {{-- SMS Logs quick link --}}
+        <a href="{{ route('sms.logs') }}" class="btn-icon d-none d-md-flex" title="SMS Logs">
+            <i class="bi bi-chat-square-text"></i>
         </a>
         <div class="dropdown">
             <div class="user-dropdown dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">

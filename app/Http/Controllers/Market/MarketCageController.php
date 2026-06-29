@@ -26,10 +26,23 @@ class MarketCageController extends Controller
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
+        if ($request->filled('search_value')) {
+            $search = $request->search_value;
+            $query->where(function ($q) use ($search) {
+                $q->where('cage_number', 'like', "%{$search}%")
+                    ->orWhere('occupied_by', 'like', "%{$search}%")
+                    ->orWhereHas('market', function ($mq) use ($search) {
+                        $mq->where('name', 'like', "%{$search}%");
+                    });
+            });
+        }
 
         return DataTables::of($query)
+            ->addColumn('cage_number', function ($row) {
+                return e($row->cage_number);
+            })
             ->addColumn('market_name', function ($row) {
-                return $row->market ? $row->market->name : 'N/A';
+                return $row->market ? e($row->market->name) : 'N/A';
             })
             ->addColumn('cost_formatted', function ($row) {
                 return number_format($row->cost, 2) . ' TZS';
@@ -40,9 +53,12 @@ class MarketCageController extends Controller
             ->addColumn('status_badge', function ($row) {
                 return $row->statusBadge;
             })
+            ->editColumn('occupied_date', function ($row) {
+                return $row->occupied_date ? $row->occupied_date->format('d M Y') : null;
+            })
             ->addColumn('action', function ($row) {
                 $buttons = '<div class="btn-group btn-group-sm">';
-                $buttons .= '<button type="button" class="btn btn-warning edit-btn" data-id="' . $row->id . '" data-market="' . $row->market_id . '" data-number="' . e($row->cage_number) . '" data-cost="' . $row->cost . '" data-rent="' . $row->rent_cost . '" data-status="' . $row->status . '" data-occupied-by="' . e($row->occupied_by) . '" data-description="' . e($row->description) . '" title="Edit"><i class="bi bi-pencil"></i></button>';
+                $buttons .= '<button type="button" class="btn btn-warning edit-btn" data-id="' . $row->id . '" data-market="' . $row->market_id . '" data-number="' . e($row->cage_number) . '" data-cost="' . $row->cost . '" data-rent="' . $row->rent_cost . '" data-status="' . $row->status . '" data-occupied-by="' . e($row->occupied_by ?? '') . '" data-description="' . e($row->description ?? '') . '" title="Edit"><i class="bi bi-pencil"></i></button>';
                 $buttons .= '<button type="button" class="btn btn-danger delete-btn" data-id="' . $row->id . '" title="Delete"><i class="bi bi-trash"></i></button>';
                 $buttons .= '</div>';
                 return $buttons;

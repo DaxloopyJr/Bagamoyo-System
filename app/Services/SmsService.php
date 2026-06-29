@@ -2,21 +2,36 @@
 
 namespace App\Services;
 
+use App\Classes\SMPP;
 use App\Models\SmsLog;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class SmsService
 {
-    protected $provider;
-    protected $config;
+    protected $smppHost;
+    protected $smppPort;
+    protected $smppLogin;
+    protected $smppPassword;
+    protected $smppSender;
 
     public function __construct()
     {
-        $this->provider = config('services.sms.provider', 'twilio');
-        $this->config = config("services.sms.{$this->provider}", []);
+        $this->smppHost = config('services.sms.smpp_host', '196.46.122.141');
+        $this->smppPort = config('services.sms.smpp_port', 9001);
+        $this->smppLogin = config('services.sms.smpp_login', 'FCT');
+        $this->smppPassword = config('services.sms.smpp_password', 'fct@dmin@2023');
+        $this->smppSender = config('services.sms.smpp_sender', 'FCT');
     }
 
+    /**
+     * Send SMS using SMPP protocol
+     *
+     * @param string $to Recipient phone number
+     * @param string $message Message body
+     * @param object|null $notifiable Related model instance
+     * @param string $smsType Type of SMS for logging
+     * @return array Result with status and message
+     */
     public function send($to, $message, $notifiable = null, $smsType = 'custom')
     {
         // Format phone number
@@ -30,21 +45,24 @@ class SmsService
             'notifiable_type' => $notifiable ? get_class($notifiable) : null,
             'notifiable_id' => $notifiable ? $notifiable->id : null,
             'status' => 'pending',
-            'sent_by' => auth()->id(),
+            'sent_by' => auth()->id() ?? null,
         ]);
 
         try {
-            $result = match ($this->provider) {
-                'twilio' => $this->sendTwilio($to, $message),
-                'beem' => $this->sendBeem($to, $message),
-                default => $this->sendLogOnly($to, $message),
-            };
+            $result = $this->sendViaSmpp($to, $message);
 
-            $log->update([
-                'status' => 'sent',
-                'sent_at' => now(),
-                'provider_response' => is_string($result) ? $result : json_encode($result),
-            ]);
+            if ($result['success']) {
+                $log->update([
+                    'status' => 'sent',
+                    'sent_at' => now(),
+                    'provider_response' => $result['status_message'] ?? 'OK',
+                ]);
+            } else {
+                $log->update([
+                    'status' => 'failed',
+                    'error_message' => $result['error'] ?? 'Unknown error',
+                ]);
+            }
 
             return $result;
         } catch (\Exception $e) {
@@ -55,83 +73,140 @@ class SmsService
                 'error_message' => $e->getMessage(),
             ]);
 
-            throw $e;
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
         }
     }
 
-    protected function sendTwilio($to, $message)
+    /**
+     * Send SMS via SMPP protocol using the SMPP class
+     *
+     * @param string $to Recipient phone number
+     * @param string $message Message body
+     * @return array Result array
+     */
+    protected function sendViaSmpp($to, $message)
     {
-        $sid = $this->config['sid'] ?? null;
-        $authToken = $this->config['auth_token'] ?? null;
-        $from = $this->config['phone_number'] ?? null;
+        $smpp = null;
 
-        if (!$sid || !$authToken || !$from) {
-            // Fallback to log-only mode for demo
-            return $this->sendLogOnly($to, $message);
+        try {
+            // Initialize SMPP connection
+            $smpp = new SMPP($this->smppHost, $this->smppPort);
+            $smpp->debug = config('app.debug', false);
+
+            // Bind as transmitter
+            if (!$smpp->bindTransmitter($this->smppLogin, $this->smppPassword)) {
+                return [
+                    'success' => false,
+                    'error' => 'Failed to bind to SMPP server as transmitter',
+                ];
+            }
+
+            // Send the SMS
+            $result = $smpp->sendSMS($this->smppSender, $to, $message);
+
+            // Get status message
+            $statusMessage = $smpp->getStatusMessage($result);
+
+            // Close connection
+            $smpp->close();
+            unset($smpp);
+
+            if ($result === false) {
+                return [
+                    'success' => false,
+                    'error' => 'SMPP sendSMS returned false. Message may be too long or invalid parameters.',
+                ];
+            }
+
+            // Check if status is OK (0x00000000 = ESME_ROK)
+            if ($result === 0) {
+                return [
+                    'success' => true,
+                    'status_code' => $result,
+                    'status_message' => $statusMessage,
+                ];
+            }
+
+            return [
+                'success' => false,
+                'status_code' => $result,
+                'error' => $statusMessage,
+            ];
+
+        } catch (\Exception $e) {
+            // Ensure connection is closed on error
+            if ($smpp) {
+                try {
+                    $smpp->close();
+                } catch (\Exception $closeEx) {
+                    // Ignore close errors
+                }
+                unset($smpp);
+            }
+
+            Log::error("SMPP SMS sending error: " . $e->getMessage());
+
+            return [
+                'success' => false,
+                'error' => 'SMPP Error: ' . $e->getMessage(),
+            ];
         }
-
-        $response = Http::withBasicAuth($sid, $authToken)
-            ->asForm()
-            ->post("https://api.twilio.com/2010-04-01/Accounts/{$sid}/Messages.json", [
-                'To' => $to,
-                'From' => $from,
-                'Body' => $message,
-            ]);
-
-        if (!$response->successful()) {
-            throw new \Exception('Twilio error: ' . $response->body());
-        }
-
-        return $response->json();
     }
 
-    protected function sendBeem($to, $message)
+    /**
+     * Send bulk SMS to multiple recipients
+     *
+     * @param array $recipients Array of ['phone' => ..., 'message' => ...] or phone numbers
+     * @param string|null $message Common message (if recipients is just phone numbers)
+     * @param string $smsType Type of SMS for logging
+     * @return array Results summary
+     */
+    public function sendBulk(array $recipients, $message = null, $smsType = 'bulk')
     {
-        $apiKey = $this->config['api_key'] ?? null;
-        $secretKey = $this->config['secret_key'] ?? null;
-        $senderId = $this->config['sender_id'] ?? 'BAGAMOYO';
+        $results = ['sent' => 0, 'failed' => 0, 'errors' => []];
 
-        if (!$apiKey || !$secretKey) {
-            return $this->sendLogOnly($to, $message);
+        foreach ($recipients as $recipient) {
+            $phone = is_array($recipient) ? ($recipient['phone'] ?? $recipient) : $recipient;
+            $msg = is_array($recipient) && isset($recipient['message']) ? $recipient['message'] : $message;
+
+            try {
+                $result = $this->send($phone, $msg, null, $smsType);
+                if ($result['success']) {
+                    $results['sent']++;
+                } else {
+                    $results['failed']++;
+                    $results['errors'][] = $phone . ': ' . ($result['error'] ?? 'Unknown error');
+                }
+            } catch (\Exception $e) {
+                $results['failed']++;
+                $results['errors'][] = $phone . ': ' . $e->getMessage();
+            }
         }
 
-        $response = Http::withBasicAuth($apiKey, $secretKey)
-            ->post('https://apisms.beem.africa/v1/send', [
-                'source_addr' => $senderId,
-                'encoding' => 0,
-                'schedule_time' => '',
-                'recipients' => [
-                    ['recipient_id' => uniqid(), 'dest_addr' => $to]
-                ],
-                'message' => $message,
-            ]);
-
-        if (!$response->successful()) {
-            throw new \Exception('Beem error: ' . $response->body());
-        }
-
-        return $response->json();
+        return $results;
     }
 
-    protected function sendLogOnly($to, $message)
-    {
-        // For demo/development - log the SMS without actually sending
-        Log::info("SMS would be sent to {$to}: {$message}");
-        return ['message_sid' => 'demo_' . uniqid(), 'status' => 'sent'];
-    }
-
+    /**
+     * Format phone number to international format
+     *
+     * @param string $number
+     * @return string
+     */
     protected function formatPhoneNumber($number)
     {
-        // Remove any non-numeric characters
+        // Remove any non-numeric characters except +
         $number = preg_replace('/[^0-9+]/', '', $number);
 
-        // Ensure it starts with country code
+        // If starts with 0, replace with 255
         if (str_starts_with($number, '0')) {
-            $number = '+255' . substr($number, 1);
+            $number = '255' . substr($number, 1);
         }
-        if (!str_starts_with($number, '+')) {
-            $number = '+' . $number;
-        }
+
+        // Remove + if present
+        $number = ltrim($number, '+');
 
         return $number;
     }

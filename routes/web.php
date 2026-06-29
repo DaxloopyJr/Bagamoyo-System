@@ -151,6 +151,8 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('sms')->name('sms.')->group(function () {
         Route::get('/send', [SmsController::class, 'create'])->name('create');
         Route::post('/send', [SmsController::class, 'send'])->name('send');
+        Route::get('/hygiene', [SmsController::class, 'hygieneForm'])->name('hygiene');
+        Route::post('/hygiene', [SmsController::class, 'sendHygiene'])->name('hygiene.send');
         Route::get('/logs', [SmsController::class, 'logs'])->name('logs');
         Route::get('/logs-data', [SmsController::class, 'logsData'])->name('logs-data');
     });
